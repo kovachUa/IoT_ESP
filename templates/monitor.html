@@ -29,7 +29,8 @@
                 }
 
                 const sensors = [];
-                Object.values(devices).forEach(dev => {
+                // Потрібно отримати MAC-адреси, які є ключами в об'єкті devices
+                Object.entries(devices).forEach(([mac, dev]) => { // Змінено Object.values на Object.entries
                     const lastSeen = new Date(dev.last_seen.replace(" ", "T"));
                     const now = new Date();
                     const diffSec = (now - lastSeen) / 1000;
@@ -37,12 +38,12 @@
 
                     if (isOnline && dev.data) {
                         for (const [sensorId, sensorValue] of Object.entries(dev.data)) {
-                            if (typeof sensorValue === 'number') {
+                            if (typeof sensorValue === 'number') { // Розглядаємо тільки числові значення сенсорів
                                 sensors.push({ 
                                     id: sensorId, 
                                     value: sensorValue, 
                                     deviceName: dev.name,
-                                    mac: dev.mac // MAC might not be directly in dev object here, it's the key
+                                    mac: mac // Тепер MAC-адреса доступна
                                 });
                             }
                         }
@@ -50,8 +51,8 @@
                 });
 
                 if (sensors.length === 0) {
-                    container.innerHTML = '<div class="col-12 text-center text-danger">Помилка завантаження даних. Дивіться консоль.</div>';
-                    // container.innerHTML = '<div class="col-12 text-center text-muted">Немає активних даних від сенсорів онлайн пристроїв.</div>';
+                    // Цей блок може спрацьовувати, якщо пристрої онлайн, але не надсилають числових даних
+                    container.innerHTML = '<div class="col-12 text-center text-muted">Немає активних числових даних від сенсорів онлайн пристроїв.</div>';
                     return;
                 }
                 
@@ -69,11 +70,13 @@
                     let unit = "";
                     if (sensor.id.toLowerCase().includes('temp')) unit = "°C";
                     else if (sensor.id.toLowerCase().includes('hum')) unit = "%";
+                    // Можна додати інші одиниці вимірювання за потребою
 
                     card.innerHTML = `
                         <div class="card shadow border-info">
                             <div class="card-header bg-info text-white">
                                 <h5 class="card-title mb-0 small">${sensor.deviceName}</h5>
+                                <p class="mb-0 small"><small>MAC: ${sensor.mac}</small></p> {# Додано відображення MAC #}
                             </div>
                             <div class="card-body text-center py-3">
                                 <p class="card-text mb-1"><small>Сенсор: <code>${sensor.id}</code></small></p>
@@ -93,7 +96,7 @@
 
     document.addEventListener("DOMContentLoaded", function() {
         updateMonitor();
-        setInterval(updateMonitor, 10000);
+        setInterval(updateMonitor, 10000); // Оновлювати кожні 10 секунд
     });
 </script>
 {% endblock %}
