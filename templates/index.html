@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Пристрої - ESP Монітор{% endblock %}
+
+{% block content %}
+<div class="text-center pt-3 pb-2 mb-3">
+    <h1 class="h2">Пристрої</h1>
+</div>
+
+<div class="row" id="devices-container">
+    <div class="col-12 text-center text-muted">Завантаження... <div class="spinner-border spinner-border-sm ms-2" role="status"></div></div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    const OFFLINE_THRESHOLD_SECONDS = parseInt("{{ OFFLINE_TIMEOUT }}", 10);
+
+    function updateDevices() {
+        fetch("{{ url_for('get_devices_api') }}")
+            .then(response => response.json())
+            .then(devices => {
+                const container = document.getElementById("devices-container");
+                container.innerHTML = "";
+
+                if (Object.keys(devices).length === 0) {
+                    container.innerHTML = '<div class="col-12 text-center text-muted">Немає активних пристроїв.</div>';
+                    return;
+                }
+
+                const sorted = Object.entries(devices).sort(([, a], [, b]) => a.name.localeCompare(b.name));
+                
+                sorted.forEach(([mac, dev]) => {
+                    const lastSeen = new Date(dev.last_seen.replace(" ", "T")); // Для кращої сумісності парсингу дати
+                    const now = new Date();
+                    const diffSec = (now - lastSeen) / 1000;
+                    const isOffline = diffSec > OFFLINE_THRESHOLD_SECONDS;
+                    const statusClass = isOffline ? "status-offline-card" : "status-online-card"; // Custom classes for card styling
+                    const cardBorderClass = isOffline ? "border-danger" : "border-primary";
+                    const statusText = isOffline ? "Офлайн" : "Онлайн";
+                    const statusTextClass = isOffline ? "text-danger" : "text-success";
+                    
+                    const card = document.createElement("div");
+                    card.className = "col-md-6 col-lg-4 mb-4";
+                    
+                    let dataHtml = "<div class='text-muted small ps-3'>Немає даних від сенсорів</div>";
+                    if (dev.data && Object.keys(dev.data).length > 0) {
+                        dataHtml = '<ul class="list-group list-group-flush">';
+                        for (const [k, v] of Object.entries(dev.data)) {
+                            let valueDisplay = v;
+                            if (typeof v === 'number') {
+                                // Example: only add units if sensor key suggests it
+                                if (k.toLowerCase().includes('temp')) {
+                                    valueDisplay = v.toFixed(1) + " °C";
+                                } else if (k.toLowerCase().includes('hum')) {
+                                    valueDisplay = v.toFixed(1) + " %";
+                                } else {
+                                    valueDisplay = v.toFixed(1);
+                                }
+                            } else if (typeof v === 'object' && v !== null) {
+                                valueDisplay = JSON.stringify(v);
+                            }
+                            dataHtml += `<li class="list-group-item py-1">Сенсор <code>${k}</code>: <strong>${valueDisplay}</strong></li>`;
+                        }
+                        dataHtml += '</ul>';
+                    }
+
+                    card.innerHTML = `
+                        <div class="card shadow-sm ${cardBorderClass} ${statusClass}">
+                            <div class="card-header ${isOffline ? 'bg-light text-dark' : 'bg-primary text-white'}">
+                                <h5 class="mb-0">${dev.name}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-1"><strong>MAC:</strong> <code>${mac}</code></p>
+                                <p class="mb-2"><strong>Статус:</strong> <span class="fw-bold ${statusTextClass}">${statusText}</span></p>
+                                <h6 class="card-subtitle my-2 text-muted">Дані сенсорів:</h6>
+                                ${dataHtml}
+                            </div>
+                            <div class="card-footer text-muted bg-light">
+                                <small>Останній зв'язок: ${lastSeen.toLocaleString("uk-UA")}</small>
+                            </div>
+                        </div>
+                    `;
+                    // The .status-online / .status-offline classes in original CSS were for text.
+                    // I've adapted to use border classes and header background for cards.
+                    // If you want specific card background colors for online/offline, add CSS for .status-online-card / .status-offline-card
+                    container.appendChild(card);
+                });
+            })
+            .catch(error => {
+                console.error("Помилка завантаження списку пристроїв:", error);
+                const container = document.getElementById("devices-container");
+                container.innerHTML = '<div class="col-12 text-center text-danger">Помилка завантаження даних. Дивіться консоль.</div>';
+            });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        updateDevices();
+        setInterval(updateDevices, 10000); // Оновлювати кожні 10 секунд
+    });
+</script>
+{% endblock %}

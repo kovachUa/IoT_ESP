@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Поточний Стан Сенсорів - ESP Монітор{% endblock %}
+
+{% block content %}
+<div class="text-center pt-3 pb-2 mb-3">
+    <h1 class="h2">Поточний Стан Сенсорів</h1>
+</div>
+
+<div class="row" id="monitor-container">
+    <div class="col-12 text-center text-muted">
+        Завантаження даних... <div class="spinner-border spinner-border-sm ms-2" role="status"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    function updateMonitor() {
+        fetch("{{ url_for('get_devices_api') }}")
+            .then(response => response.json())
+            .then(devices => {
+                const container = document.getElementById("monitor-container");
+                container.innerHTML = ""; 
+
+                if (Object.keys(devices).length === 0) {
+                    container.innerHTML = '<div class="col-12 text-center text-muted">Немає активних пристроїв або даних від сенсорів.</div>';
+                    return;
+                }
+
+                const sensors = [];
+                Object.values(devices).forEach(dev => {
+                    const lastSeen = new Date(dev.last_seen.replace(" ", "T"));
+                    const now = new Date();
+                    const diffSec = (now - lastSeen) / 1000;
+                    const isOnline = diffSec <= parseInt("{{ OFFLINE_TIMEOUT }}", 10);
+
+                    if (isOnline && dev.data) {
+                        for (const [sensorId, sensorValue] of Object.entries(dev.data)) {
+                            if (typeof sensorValue === 'number') {
+                                sensors.push({ 
+                                    id: sensorId, 
+                                    value: sensorValue, 
+                                    deviceName: dev.name,
+                                    mac: dev.mac // MAC might not be directly in dev object here, it's the key
+                                });
+                            }
+                        }
+                    }
+                });
+
+                if (sensors.length === 0) {
+                    container.innerHTML = '<div class="col-12 text-center text-danger">Помилка завантаження даних. Дивіться консоль.</div>';
+                    // container.innerHTML = '<div class="col-12 text-center text-muted">Немає активних даних від сенсорів онлайн пристроїв.</div>';
+                    return;
+                }
+                
+                sensors.sort((a, b) => {
+                    if (a.deviceName.localeCompare(b.deviceName) !== 0) {
+                        return a.deviceName.localeCompare(b.deviceName);
+                    }
+                    return a.id.localeCompare(b.id);
+                });
+
+                sensors.forEach(sensor => {
+                    const card = document.createElement("div");
+                    card.className = "col-sm-6 col-md-4 col-lg-3 mb-4";
+                    
+                    let unit = "";
+                    if (sensor.id.toLowerCase().includes('temp')) unit = "°C";
+                    else if (sensor.id.toLowerCase().includes('hum')) unit = "%";
+
+                    card.innerHTML = `
+                        <div class="card shadow border-info">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="card-title mb-0 small">${sensor.deviceName}</h5>
+                            </div>
+                            <div class="card-body text-center py-3">
+                                <p class="card-text mb-1"><small>Сенсор: <code>${sensor.id}</code></small></p>
+                                <p class="display-6 fw-bold mb-0">${sensor.value.toFixed(1)} ${unit}</p> 
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            })
+            .catch(error => {
+                console.error("Помилка завантаження даних для монітора:", error);
+                const container = document.getElementById("monitor-container");
+                container.innerHTML = '<div class="col-12 text-center text-danger">Помилка завантаження даних. Дивіться консоль.</div>';
+            });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        updateMonitor();
+        setInterval(updateMonitor, 10000);
+    });
+</script>
+{% endblock %}

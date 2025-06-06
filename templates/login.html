@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Login - ESP Monitor{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* Custom styles for the login page */
+    body.login-page-body {
+        background-image: url('https://images.unsplash.com/photo-1545226353-0790f95f0137?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1935&q=80'); /* Replace with your desired background */
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed; /* Keeps background fixed during scroll */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding-top: 0; /* Override body padding-top from base.html */
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Hide the default navbar on the login page if it's a separate layout */
+    body.login-page-body .navbar {
+        display: none; 
+    }
+     body.login-page-body footer {
+        display: none; /* Hide footer on login page for cleaner look */
+    }
+
+
+    .glass-login-form-container {
+        background: rgba(35, 35, 65, 0.6); /* Darker semi-transparent background */
+        backdrop-filter: blur(10px) saturate(180%);
+        -webkit-backdrop-filter: blur(10px) saturate(180%); /* For Safari */
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.125);
+        padding: 40px 30px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        color: #fff; /* Default text color inside form */
+    }
+
+    .glass-login-form-container h2 {
+        text-align: center;
+        color: #fff;
+        margin-bottom: 30px;
+        font-weight: 300;
+        font-size: 2.2rem;
+    }
+
+    .glass-login-form-container .form-label {
+        color: #e0e0e0; /* Lighter gray for labels */
+        font-size: 0.9em;
+        margin-bottom: 0.3rem;
+    }
+
+    .glass-login-form-container .form-control {
+        background: rgba(255, 255, 255, 0.1); /* Input background */
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: #fff;
+        padding: 12px 15px;
+    }
+
+    .glass-login-form-container .form-control::placeholder {
+        color: #b0b0b0;
+    }
+
+    .glass-login-form-container .form-control:focus {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.4);
+        box-shadow: 0 0 0 0.2rem rgba(170, 130, 255, 0.25); /* Subtle purple focus */
+        color: #fff;
+    }
+    
+    /* Input group for icons (optional, if you add them later) */
+    .input-group .form-control {
+        border-right: 0; /* If icon is on the right */
+    }
+    .input-group .input-group-text {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-left: 0; /* If icon is on the right */
+        color: #ccc;
+    }
+
+
+    .glass-login-form-container .form-check-group {
+        margin-top: 15px;
+        margin-bottom: 20px;
+        font-size: 0.9em;
+    }
+    
+    .glass-login-form-container .form-check-label {
+        color: #e0e0e0;
+    }
+
+    .glass-login-form-container .form-check-input {
+        background-color: rgba(255,255,255,0.2);
+        border-color: rgba(255,255,255,0.3);
+        margin-top: 0.2em; /* Align better with label */
+    }
+    .glass-login-form-container .form-check-input:checked {
+        background-color: #a98ff3; /* A light purple accent */
+        border-color: #a98ff3;
+    }
+     .glass-login-form-container .form-check-input:focus {
+        box-shadow: 0 0 0 0.2rem rgba(170, 130, 255, 0.25);
+    }
+
+
+    .glass-login-form-container .forgot-password-link {
+        color: #d1c4e9; /* Light purple/lavender */
+        text-decoration: none;
+    }
+
+    .glass-login-form-container .forgot-password-link:hover {
+        text-decoration: underline;
+        color: #fff;
+    }
+
+    .glass-login-form-container .btn-login {
+        background-color: #fff;
+        color: #6a44a8; /* Darker purple for text on white button */
+        border: none;
+        border-radius: 25px; /* Pill shape */
+        padding: 12px;
+        font-weight: bold;
+        width: 100%;
+        margin-top: 20px;
+        transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    }
+
+    .glass-login-form-container .btn-login:hover {
+        background-color: #f0f0f0;
+        color: #583b8b;
+    }
+    
+    .glass-login-form-container .register-link-group {
+        margin-top: 25px;
+        font-size: 0.9em;
+    }
+    .glass-login-form-container .register-link-group p {
+        color: #e0e0e0;
+        margin-bottom: 0;
+    }
+    .glass-login-form-container .register-link-group a {
+        color: #fff;
+        font-weight: bold;
+        text-decoration: none;
+    }
+    .glass-login-form-container .register-link-group a:hover {
+        text-decoration: underline;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+{# Add a class to body specific to login page for targeted styling #}
+<script>document.body.classList.add('login-page-body');</script>
+
+<div class="glass-login-form-container">
+    <h2>Login</h2> {# Changed from "Вхід" to match image #}
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert" style="font-size: 0.9em; padding: 0.5rem 1rem;">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding: 0.75rem 1rem;"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+        <div class="mb-3">
+            <label for="username" class="form-label">Email</label> {# Changed from "Логін" #}
+            <input type="text" class="form-control" id="username" name="username" placeholder="Enter your email" required autofocus> {# Added placeholder #}
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password</label> {# Changed from "Пароль" #}
+            <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required> {# Added placeholder #}
+        </div>
+
+        <div class="form-check-group d-flex justify-content-between align-items-center">
+            <div>
+                <input type="checkbox" class="form-check-input" id="rememberMe" name="remember_me">
+                <label class="form-check-label" for="rememberMe">Remember me</label>
+            </div>
+            <a href="#" class="forgot-password-link">Forgot Password?</a>
+        </div>
+
+        <button type="submit" class="btn btn-login">Log In</button> {# Changed class from btn-primary #}
+    </form>
+
+    <div class="mt-4 text-center register-link-group">
+        <p>Don't have an account? <a href="#">Register</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+    // If the navbar was hidden via JS, this is not strictly necessary anymore with CSS display:none
+    // but keeping it doesn't hurt if you toggle body classes.
+    // document.addEventListener("DOMContentLoaded", function() {
+    //     const navbar = document.querySelector('.navbar.fixed-top');
+    //     if (navbar) {
+    //         navbar.style.display = 'none';
+    //     }
+    //     const footer = document.querySelector('footer.container');
+    //     if (footer) {
+    //         footer.style.display = 'none';
+    //     }
+    // });
+</script>
+{% endblock %}
