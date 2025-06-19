@@ -8,13 +8,12 @@ import ujson as json
 import errno
 from machine import I2C, Pin
 
-import bme280 # Assuming this is the correct bme280.py from above
-from display import SH1106
+import bme280
 from bh1750 import BH1750
 
 # WiFi конфігурація
 SSID = ' '
-PASSWORD = ' '
+PASSWORD = ' ' 
 
 # UDP маячок
 SERVER_BEACON_LISTEN_PORT = 50001
@@ -36,13 +35,13 @@ def connect_wifi():
         sta_if.active(True)
     if not sta_if.isconnected():
         print(f"Підключення до WiFi SSID: {SSID}...")
-        if SSID == 'YOUR_WIFI_SSID' or PASSWORD == 'YOUR_WIFI_PASSWORD':
-            print("!!! ПОПЕРЕДЖЕННЯ: SSID або пароль не змінено з значень за замовчуванням !!!")
-            print("Будь ласка, вкажіть реальні SSID та пароль.")
-            return False # Зупинка, якщо облікові дані не встановлені
+        if SSID == ' ' or PASSWORD == ' ' or SSID == 'YOUR_WIFI_SSID' or PASSWORD == 'YOUR_WIFI_PASSWORD':
+            print("!!! ПОПЕРЕДЖЕННЯ: SSID або пароль не змінено з значень за замовчуванням або порожні !!!")
+            print("Будь ласка, вкажіть реальні SSID та пароль у файлі main.py.")
+            return False
 
         sta_if.connect(SSID, PASSWORD)
-        for _ in range(20): # Таймаут підключення 20 секунд
+        for _ in range(20):
             if sta_if.isconnected():
                 break
             print(".", end="")
@@ -65,51 +64,54 @@ def listen_for_server_beacon():
         return False
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(BEACON_LISTEN_TIMEOUT_S) # Таймаут для операції recvfrom
+    sock.settimeout(BEACON_LISTEN_TIMEOUT_S)
     try:
-        # Для MicroPython sock.bind(('0.0.0.0', PORT)) або ('', PORT)
-        sock.bind(('', SERVER_BEACON_LISTEN_PORT)) 
+        sock.bind(('', SERVER_BEACON_LISTEN_PORT))
         print(f"Очікування маячка на порту {SERVER_BEACON_LISTEN_PORT} протягом {BEACON_LISTEN_TIMEOUT_S}с...")
         start_listen_time = time.ticks_ms()
-        
+
         while time.ticks_diff(time.ticks_ms(), start_listen_time) < (BEACON_LISTEN_TIMEOUT_S * 1000):
             try:
-                # Встановлюємо таймаут для кожного recvfrom, щоб цикл міг перевіряти загальний час
-                # sock.settimeout(1.0) # Таймаут для recvfrom в 1 секунду
-                # Якщо BEACON_LISTEN_TIMEOUT_S вже встановлено для сокета, то окремий цикл не потрібен
-                # Натомість, можна просто чекати на recvfrom
-                
-                data, addr = sock.recvfrom(256) # Буде блокувати до BEACON_LISTEN_TIMEOUT_S
+                data, addr_info = sock.recvfrom(256) # addr_info is (ip_str, port_int)
                 msg = data.decode()
-                print(f"Отримано повідомлення від {addr}: {msg}")
+                print(f"Отримано повідомлення від {addr_info}: {msg}")
+                
+                sender_ip = addr_info[0] # IP-адреса відправника маячка
+
                 beacon = json.loads(msg)
                 if beacon.get("id") == EXPECTED_SERVER_ID:
-                    ip = beacon.get("ip")
-                    port = beacon.get("port")
-                    if ip and isinstance(port, int):
-                        discovered_server_ip = ip
-                        discovered_server_port = port
-                        print(f"Знайдено сервер: {ip}:{port}")
-                        return True # Сервер знайдено, виходимо
+                    payload_ip = beacon.get("ip")
+                    payload_port = beacon.get("port")
+
+                    if payload_ip and isinstance(payload_port, int):
+                        # Якщо IP в маячку є loopback, використовуємо IP відправника.
+                        # В іншому випадку, довіряємо IP з маячка (на випадок складних мережевих конфігурацій).
+                        if payload_ip == "127.0.0.1" or payload_ip.startswith("0."):
+                            print(f"Інформація: IP в маячку ({payload_ip}) є loopback. Використовується IP відправника ({sender_ip}).")
+                            discovered_server_ip = sender_ip
+                        else:
+                            discovered_server_ip = payload_ip
+                        
+                        discovered_server_port = payload_port
+                        print(f"Знайдено сервер: {discovered_server_ip}:{discovered_server_port}")
+                        return True
             except OSError as e:
-                if e.args[0] == errno.ETIMEDOUT: # Таймаут recvfrom
-                    # Просто продовжуємо, якщо ще є час у загальному таймауті
-                    # Якщо sock.settimeout(BEACON_LISTEN_TIMEOUT_S) спрацював, цей цикл завершиться
-                    pass 
+                if e.args[0] == errno.ETIMEDOUT:
+                    pass
                 else:
                     print(f"Помилка сокета при очікуванні маячка: {e}")
-            except (ValueError, TypeError) as e: # Помилка розбору JSON
+            except (ValueError, TypeError) as e:
                 print(f"Помилка розбору JSON з маячка: {e}, повідомлення: {msg}")
             except Exception as e:
                 print(f"Неочікувана помилка при обробці маячка: {e}")
-        
-        print("Таймаут очікування маячка (загальний час вийшов).")
-        
+
+        print("Таймаут очікування маячка.")
+
     except Exception as e:
         print(f"Помилка налаштування сокета для маячка: {e}")
     finally:
         sock.close()
-        
+
     discovered_server_ip = None
     discovered_server_port = None
     return False
@@ -117,15 +119,12 @@ def listen_for_server_beacon():
 def main():
     global discovered_server_ip, discovered_server_port, mac_address_global
 
+    print("Ініціалізація пристрою...")
+
     if not connect_wifi():
         print("Перевірте налаштування WiFi. Перезапуск через 30 секунд...")
         time.sleep(30)
         machine.reset()
-
-    display = SH1106(128, 64, i2c, addr=0x3C)
-    display.fill(0)
-    display.text("Init display...", 0, 0)
-    display.show()
 
     bme_sensor = None
     try:
@@ -133,9 +132,6 @@ def main():
         print("BME280 ініціалізовано")
     except Exception as e:
         print(f"Помилка ініціалізації BME280: {e}")
-        display.fill(0)
-        display.text("BME280 Error", 0, 10)
-        display.show()
         time.sleep(2)
 
 
@@ -145,42 +141,28 @@ def main():
         print("BH1750 ініціалізовано")
     except Exception as e:
         print(f"Помилка ініціалізації BH1750: {e}")
-        display.fill(0)
-        display.text("BH1750 Error", 0, 20)
-        display.show()
         time.sleep(2)
 
 
     while True:
         if discovered_server_ip is None or discovered_server_port is None:
-            display.fill(0)
-            display.text("Шукаю сервер...", 0, 0)
-            display.show()
+            print("Шукаю сервер...")
             if not listen_for_server_beacon():
-                print("Сервер не знайдено, повторна спроба...")
-                display.fill(0)
-                display.text("No Server", 0, 0)
-                display.text(f"Retry {RETRY_LISTEN_INTERVAL_S}s", 0, 10)
-                display.show()
+                print(f"Сервер не знайдено, повторна спроба через {RETRY_LISTEN_INTERVAL_S}с...")
                 time.sleep(RETRY_LISTEN_INTERVAL_S)
                 continue
             else:
-                display.fill(0)
-                display.text("Сервер знайдено!", 0, 0)
-                display.text(f"{discovered_server_ip}", 0, 10)
-                display.text(f":{discovered_server_port}", 0, 20)
-                display.show()
-                time.sleep(2)
+                print(f"Сервер успішно знайдено: {discovered_server_ip}:{discovered_server_port}")
+                time.sleep(1) # Невелика затримка після знаходження сервера
 
-        t, p_hpa, h = None, None, None # p_hpa - тиск в гектопаскалях
+        t, p_hpa, h = None, None, None
         if bme_sensor:
             try:
                 temp, pres_hpa_val, hum = bme_sensor.read_compensated_data()
                 t = float(temp)
-                # 'pres_hpa_val' вже в hPa з bme280.read_compensated_data()
-                # float() тут для певності, хоча read_compensated_data вже повертає float
-                p_hpa = float(pres_hpa_val) 
+                p_hpa = float(pres_hpa_val)
                 h = float(hum)
+                print(f"BME280: T={t:.1f}C, P={p_hpa:.1f}hPa, H={h:.1f}%")
             except Exception as e:
                 print(f"Помилка читання BME280: {e}")
 
@@ -188,69 +170,36 @@ def main():
         if light_sensor:
             try:
                 lux = light_sensor.luminance()
+                print(f"BH1750: Lux={lux:.1f}")
             except Exception as e:
                 print(f"Помилка читання BH1750: {e}")
-
-        display.fill(0)
-        display.text("ESP32 Monitor", 0, 0)
-        if t is not None:
-            display.text(f"T: {t:.1f} C", 0, 10)
-        else:
-            display.text("T: N/A", 0, 10)
-        
-        if p_hpa is not None:
-            display.text(f"P: {p_hpa:.1f} hPa", 0, 20) # p_hpa тепер має правильне значення
-        else:
-            display.text("P: N/A", 0, 20)
-            
-        if h is not None:
-            display.text(f"H: {h:.1f} %", 0, 30)
-        else:
-            display.text("H: N/A", 0, 30)
-
-        if lux is not None:
-            if lux < 5:
-                display.text("Night mode", 0, 40)
-            else:
-                display.text(f"Lux: {lux:.1f}", 0, 40)
-        else:
-            display.text("Lux: N/A", 0, 40)
-
-        if discovered_server_ip:
-            display.text("Srv: Connected", 0, 50)
-        else:
-            display.text("Srv: Searching", 0, 50)
-        display.show()
 
         if discovered_server_ip and discovered_server_port:
             payload = {
                 "mac": mac_address_global if mac_address_global else "UNKNOWN_MAC",
                 "data": {
                     "temperature": round(t, 2) if t is not None else None,
-                    "pressure_hpa": round(p_hpa, 2) if p_hpa is not None else None, # Використовуємо p_hpa
+                    "pressure_hpa": round(p_hpa, 2) if p_hpa is not None else None,
                     "humidity": round(h, 2) if h is not None else None,
                     "illumination_lux": round(lux, 2) if lux is not None else None
                 }
             }
             try:
                 url = f"http://{discovered_server_ip}:{discovered_server_port}/data"
-                print(f"Відправка на {url}: {payload}")
+                # Використовуємо json.dumps для коректного логування повного payload
+                print(f"Відправка на {url}: {json.dumps(payload)}")
                 headers = {'Content-Type': 'application/json'}
                 res = urequests.post(url, json=payload, headers=headers)
                 print(f"Статус відправки: {res.status_code}")
                 res.close()
             except Exception as e:
                 print(f"Помилка відправки даних: {e}")
-                # Скидаємо інформацію про сервер, щоб спробувати знайти його знову
                 discovered_server_ip = None
                 discovered_server_port = None
-                display.fill(0)
-                display.text("Send Error", 0, 0)
-                display.text("Srv Lost", 0, 10)
-                display.show()
-                time.sleep(2) # Невелика затримка перед повторним пошуком сервера
+                print("З'єднання з сервером втрачено. Повторний пошук...")
+                time.sleep(2)
 
-        time.sleep(10) # Інтервал між відправками даних
+        time.sleep(10)
 
 if __name__ == "__main__":
     try:
@@ -259,5 +208,4 @@ if __name__ == "__main__":
         print("Зупинка користувачем")
     except Exception as e:
         print(f"Критична помилка в main: {e}")
-        # Можна додати код для безпечного завершення або перезавантаження
-        # machine.reset()
+        # machine.reset() # Розкоментуйте для автоматичного перезавантаження
