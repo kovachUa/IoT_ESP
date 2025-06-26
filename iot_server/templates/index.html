@@ -17,7 +17,7 @@
     const OFFLINE_THRESHOLD_SECONDS = parseInt("{{ OFFLINE_TIMEOUT }}", 10);
 
     function updateDevices() {
-        fetch("{{ url_for('get_devices_api') }}")
+        fetch("{{ url_for('api.get_devices_api') }}")  {# ЗМІНЕНО #}
             .then(response => response.json())
             .then(devices => {
                 const container = document.getElementById("devices-container");

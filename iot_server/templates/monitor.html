@@ -17,7 +17,7 @@
 {% block scripts_extra %}
 <script>
     function updateMonitor() {
-        fetch("{{ url_for('get_devices_api') }}")
+        fetch("{{ url_for('api.get_devices_api') }}")  {# ЗМІНЕНО #}
             .then(response => response.json())
             .then(devices => {
                 const container = document.getElementById("monitor-container");

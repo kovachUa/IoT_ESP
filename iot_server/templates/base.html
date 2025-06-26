@@ -22,7 +22,7 @@
 
 <nav class="navbar navbar-expand-sm navbar-dark fixed-top bg-dark">
     <div class="container-fluid px-3">
-        <a class="navbar-brand" href="{{ url_for('monitor_page') }}">
+        <a class="navbar-brand" href="{{ url_for('web.monitor_page') }}"> {# ЗМІНЕНО #}
             <i class="bi bi-gear-fill"></i> ESP Монітор
         </a>
         {% if session.logged_in %}
@@ -30,8 +30,8 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-            <div class="ms-auto"> 
-                 <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light d-lg-inline-block d-block mt-2 mt-lg-0">
+            <div class="ms-auto">
+                 <a href="{{ url_for('web.logout') }}" class="btn btn-sm btn-outline-light d-lg-inline-block d-block mt-2 mt-lg-0"> {# ЗМІНЕНО #}
                     <i class="bi bi-box-arrow-right"></i> Вийти
                 </a>
             </div>
@@ -44,12 +44,12 @@
     {% if session.logged_in %}
     <ul class="nav nav-pills nav-fill mb-3">
         <li class="nav-item">
-            <a class="nav-link {% if active_page == 'monitor' %}active{% endif %}" href="{{ url_for('monitor_page') }}">
+            <a class="nav-link {% if active_page == 'monitor' %}active{% endif %}" href="{{ url_for('web.monitor_page') }}"> {# ЗМІНЕНО #}
                 <i class="bi bi-graph-up"></i> Поточний Стан
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link {% if active_page == 'devices' %}active{% endif %}" href="{{ url_for('devices_page') }}">
+            <a class="nav-link {% if active_page == 'devices' %}active{% endif %}" href="{{ url_for('web.devices_page') }}"> {# ЗМІНЕНО #}
                 <i class="bi bi-list-ul"></i> Пристрої
             </a>
         </li>
